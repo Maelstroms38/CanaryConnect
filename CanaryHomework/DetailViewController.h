@@ -9,12 +9,14 @@
 #import <UIKit/UIKit.h>
 #import "Device+CoreDataProperties.h"
 #import "Reading+CoreDataProperties.h"
+#import "CoreDataController.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface DetailViewController : UIViewController
+@interface DetailViewController : UIViewController <UITableViewDelegate, UITableViewDataSource>
 
-@property (weak, nonatomic) Device *device;
+@property (nonatomic, weak) Device *device;
+@property (nonatomic, weak) CoreDataController *controller;
 
 @end
 

@@ -48,16 +48,6 @@
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self.tableView reloadData];
             });
-                
-//            [self.controller getReadingsForDevice: device.deviceID completionBlock:^(BOOL completed, BOOL success, NSArray * _Nonnull objects) {
-//
-//                if (success && completed) {
-//                    NSSet<Reading *> *readings = [[NSSet alloc] initWithObjects:objects, nil];
-//                    device.readings = readings;
-//
-//                }
-//            
-//            }];
 
         } else {
             [self showAlert];
@@ -88,7 +78,6 @@
     [[self.tableView.rightAnchor constraintEqualToAnchor:self.view.rightAnchor] setActive:true];
     
     [self.tableView registerNib:[UINib nibWithNibName:@"DeviceTableViewCell" bundle:nil] forCellReuseIdentifier:@"cell"];
-//    [self.tableView registerClass:[DeviceTableViewCell class] forCellReuseIdentifier:@"cell"];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
     self.tableView.rowHeight = 120;
@@ -111,15 +100,13 @@
     // Configure the cell from the object
     
     cell.nameLabel.text = object.name;
-    
-    
-    cell.tempLabel.text = [[DateFormatter sharedFormatter] stringFromDate:object.updateAt];
     return cell;
 }
 
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     DetailViewController *dc = [DetailViewController new];
     dc.device = [self.devices objectAtIndex:indexPath.row];
+    dc.controller = self.controller;
     [self.navigationController pushViewController:dc animated:YES];
 }
 
