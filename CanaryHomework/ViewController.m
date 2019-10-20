@@ -19,6 +19,7 @@
 @property(nonatomic, retain) UITableView *tableView;
 @property(nonatomic, retain) UILayoutGuide *safeArea;
 @property(nonatomic, retain) NSFetchedResultsController *fetchedResultsController;
+@property(nonatomic, retain) UIRefreshControl *refreshControl;
 
 @end
 
@@ -35,12 +36,42 @@
     
     // GET devices list
     [self fetchDevices];
+    
+    [self setupRefreshControl];
+}
+
+- (void)setupRefreshControl {
+    self.refreshControl = [[UIRefreshControl alloc] init];
+    self.refreshControl.backgroundColor = [UIColor grayColor];
+    self.refreshControl.tintColor = [UIColor whiteColor];
+    [self.refreshControl addTarget:self
+                            action:@selector(fetchDevices)
+                  forControlEvents:UIControlEventValueChanged];
+    [self.tableView addSubview:self.refreshControl];
 }
 
 - (void)fetchDevices {
+    [self.refreshControl beginRefreshing];
     [[CoreDataController sharedCache] getAllDevices:^(BOOL completed, BOOL success, NSArray * _Nonnull objects) {
         if (completed) {
-            [self setupFetchedResultsController];
+            // For the initial fetch, set up fetched results controller.
+            if (self.fetchedResultsController == nil) {
+                [self setupFetchedResultsController];
+            } else {
+                 NSError *error;
+                 BOOL success = [self.fetchedResultsController performFetch:&error];
+                 if (!success) {
+                     [self showAlert];
+                     dispatch_async(dispatch_get_main_queue(), ^{
+                         [self.refreshControl endRefreshing];
+                     });
+                 } else {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self.tableView reloadData];
+                        [self.refreshControl endRefreshing];
+                    });
+                 }
+            }
         }
     }];
 }
@@ -62,9 +93,13 @@
     BOOL success = [controller performFetch:&error];
     if (!success) {
         [self showAlert];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.refreshControl endRefreshing];
+        });
     } else {
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.tableView reloadData];
+            [self.refreshControl endRefreshing];
         });
     }
 }
