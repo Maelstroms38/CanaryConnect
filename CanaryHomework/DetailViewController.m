@@ -138,24 +138,26 @@
     
     // Configure the cell from the object
     UILabel *tempLabel = [[UILabel alloc] initWithFrame: CGRectMake(0, 0, 100, 20)];
+    NSArray *items = @[@"*F", @"%", @"%"];
+    NSString *unit = [items objectAtIndex:self.segmentControl.selectedSegmentIndex];
     switch (indexPath.row) {
         case 0:
             cell.textLabel.text = @"Maximum";
-            tempLabel.text = [[[NSString alloc] initWithFormat:@"%@", self.max] substringToIndex:2];
+            tempLabel.text = [[[[NSString alloc] initWithFormat:@"%@", self.max] substringToIndex:2] stringByAppendingString:unit];
             tempLabel.textAlignment = NSTextAlignmentRight;
             cell.accessoryView = tempLabel;
             return cell;
             
         case 1:
             cell.textLabel.text = @"Minimum";
-            tempLabel.text = [[[NSString alloc] initWithFormat:@"%@", self.min] substringToIndex:2];
+            tempLabel.text = [[[[NSString alloc] initWithFormat:@"%@", self.min] substringToIndex:2] stringByAppendingString:unit];
             tempLabel.textAlignment = NSTextAlignmentRight;
             cell.accessoryView = tempLabel;
             return cell;
             
         case 2:
             cell.textLabel.text = @"Average";
-            tempLabel.text = [[[NSString alloc] initWithFormat:@"%@", self.average] substringToIndex:2];
+            tempLabel.text = [[[[NSString alloc] initWithFormat:@"%@", self.average] substringToIndex:2] stringByAppendingString:unit];
             tempLabel.textAlignment = NSTextAlignmentRight;
             cell.accessoryView = tempLabel;
             return cell;
