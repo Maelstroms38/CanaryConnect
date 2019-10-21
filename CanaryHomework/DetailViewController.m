@@ -15,22 +15,11 @@
 @property(nonatomic, retain) UITableView *tableView;
 @property(nonatomic, retain) UILayoutGuide *safeArea;
 @property(nonatomic, retain) UISegmentedControl *segmentControl;
+@property(nonatomic, retain) UILabel *deviceNameLabel;
 
 @property(nonatomic, weak) NSNumber *max;
 @property(nonatomic, weak) NSNumber *min;
 @property(nonatomic, weak) NSNumber *average;
-
-@property(nonatomic, weak) NSNumber *maxTemp;
-@property(nonatomic, weak) NSNumber *minTemp;
-@property(nonatomic, weak) NSNumber *aveTemp;
-
-@property(nonatomic, weak) NSNumber *maxAir;
-@property(nonatomic, weak) NSNumber *minAir;
-@property(nonatomic, weak) NSNumber *aveAir;
-
-@property(nonatomic, weak) NSNumber *maxHum;
-@property(nonatomic, weak) NSNumber *minHum;
-@property(nonatomic, weak) NSNumber *aveHum;
 
 @end
 
@@ -43,6 +32,8 @@
     self.safeArea = self.view.layoutMarginsGuide;
     self.view.backgroundColor = [UIColor whiteColor];
     [self setupTableView];
+    [self setupTableHeader];
+    [self setupDeviceLabel];
     // add readings to device
     [self fetchDeviceReadings];
 }
@@ -51,29 +42,28 @@
         if (completed) {
             CoreDataManager *coreDataManager = [CoreDataManager defaultManager];
             Device *device = [Device deviceWithID:self.deviceId managedObjectContext:coreDataManager.managedObjectContext createIfNeeded:false];
-            self.device = device;
-            [self setupTableHeader];
-            [self calculateTemps:^{
-                [self segmentSelected:nil];
-            }];
+            self.deviceNameLabel.text = device.name;
+            [self segmentSelected:nil];
         }
     }];
 }
 
-- (void)setupTableHeader {
-    UIView *tableHeader = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height * 0.20)];
-    self.tableView.tableHeaderView = tableHeader;
+- (void)setupDeviceLabel {
+    UIView *tableHeader = self.tableView.tableHeaderView;
     UILabel *deviceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, tableHeader.frame.size.width, 0)];
+    self.deviceNameLabel = deviceLabel;
     deviceLabel.textAlignment = NSTextAlignmentCenter;
     deviceLabel.textColor = [UIColor blackColor];
-    deviceLabel.text = self.device.name;
     [deviceLabel sizeToFit];
-    [self.tableView.tableHeaderView addSubview:deviceLabel];
-    // activate constraints
+    [tableHeader addSubview:deviceLabel];
     deviceLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [[deviceLabel.centerXAnchor constraintEqualToAnchor:tableHeader.centerXAnchor] setActive:YES];
     [[deviceLabel.centerYAnchor constraintEqualToAnchor:tableHeader.centerYAnchor] setActive:YES];
-    
+}
+- (void)setupTableHeader {
+    UIView *tableHeader = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height * 0.20)];
+    self.tableView.tableHeaderView = tableHeader;
+    // activate constraints
     NSArray *items = @[@"Temperature", @"Humidity", @"Air Quality"];
     UISegmentedControl *segment = [[UISegmentedControl alloc] initWithItems:items];
     [segment setWidth:tableHeader.frame.size.width / 3 forSegmentAtIndex:0];
@@ -88,95 +78,37 @@
     self.segmentControl = segment;
 }
 
-- (void)calculateTemps:(void (^)(void))completionBlock {
-    // Get Max, Min and Average Temp
-    NSNumber *maxTemp = 0;
-    NSNumber *minTemp = [NSNumber numberWithInt:INFINITY];
-    NSNumber *aveTemp = 0;
+- (void)calculateTemps:(NSString*)type completion:(void (^)(void))completionBlock {
+    CoreDataManager *coreDataManager = [CoreDataManager defaultManager];
+    NSEntityDescription *entity = [NSEntityDescription entityForName:@"Reading" inManagedObjectContext:coreDataManager.managedObjectContext];
+    NSFetchRequest *fetchRequest = [NSFetchRequest new];
+    [fetchRequest setEntity:entity];
     
-    // Get Max, Min and Average Air Quality
-    NSNumber *maxAir = 0;
-    NSNumber *minAir = [NSNumber numberWithInt:INFINITY];
-    NSNumber *aveAir = 0;
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"device.deviceID == %@ && type == %@", self.deviceId, type];
+    [fetchRequest setPredicate:predicate];
     
-    // Get Max, Min and Average Air Humidity
-    NSNumber *maxHum = 0;
-    NSNumber *minHum = [NSNumber numberWithInt:INFINITY];
-    NSNumber *aveHum = 0;
+    NSError *error;
+    NSArray<Reading *> *readings = [coreDataManager.managedObjectContext executeFetchRequest:fetchRequest error:&error];
     
-    NSArray *items = @[@"temperature", @"airquality", @"humidity"];
-    
-    for (Reading *reading in self.device.readings) {
-        NSString *type = reading.type;
-        NSNumber *value = reading.value;
-        int item = (int)[items indexOfObject:type];
-        switch (item) {
-            case 0:
-                maxTemp = MAX(value, maxTemp);
-                minTemp = MIN(value, minTemp);
-                aveTemp = @(([maxTemp integerValue] + [minTemp integerValue]) / 2);
-                break;
-            case 1:
-                maxAir = MAX(value, maxAir);
-                minAir = MIN(value, minAir);
-                aveAir = @(([maxAir integerValue] + [minAir integerValue]) / 2);
-                break;
-            case 2:
-                maxHum = MAX(value, maxHum);
-                minHum = MIN(value, minHum);
-                aveHum = @(([maxHum integerValue] + [minHum integerValue]) / 2);
-                break;
-            default:
-                break;
-        }
-    }
-    
-    self.maxTemp = maxTemp;
-    self.minTemp = minTemp;
-    self.aveTemp = aveTemp;
-    
-    self.max = maxTemp;
-    self.min = minTemp;
-    self.average = aveTemp;
-    
-    self.maxAir = maxAir;
-    self.minAir = minAir;
-    self.aveAir = aveAir;
-    
-    self.maxHum = maxHum;
-    self.minHum = minHum;
-    self.aveHum = aveHum;
-    
+    // Get Average, Maximum and Minimum values.
+    self.average = [readings valueForKeyPath:@"@avg.value"];
+    self.max = [readings valueForKeyPath:@"@max.value"];
+    self.min = [readings valueForKeyPath:@"@min.value"];
     if (completionBlock != nil) {
         completionBlock();
     }
 }
 
 - (void)segmentSelected:(id)sender {
-    switch (self.segmentControl.selectedSegmentIndex) {
-        case 0:
-            self.max = self.maxTemp;
-            self.min = self.minTemp;
-            self.average = self.aveTemp;
-            break;
-        case 1:
-            self.max = self.maxHum;
-            self.min = self.minHum;
-            self.average = self.aveHum;
-            break;
-        case 2:
-            self.max = self.maxAir;
-            self.min = self.minAir;
-            self.average = self.aveAir;
-            break;
-        default:
-            break;
+        NSArray *items = @[@"temperature", @"airquality", @"humidity"];
+        NSString *type = [items objectAtIndex:self.segmentControl.selectedSegmentIndex];
+        [self calculateTemps:type completion:^{
+            [self.tableView beginUpdates];
+            NSArray<NSIndexPath *> *indices = @[[NSIndexPath indexPathForRow:0 inSection:0], [NSIndexPath indexPathForRow:1 inSection:0], [NSIndexPath indexPathForRow:2 inSection:0]];
+            [self.tableView reloadRowsAtIndexPaths:indices withRowAnimation:UITableViewRowAnimationFade];
+            [self.tableView endUpdates];
+        }];
     }
-    [self.tableView beginUpdates];
-    NSArray<NSIndexPath *> *indices = @[[NSIndexPath indexPathForRow:0 inSection:0], [NSIndexPath indexPathForRow:1 inSection:0], [NSIndexPath indexPathForRow:2 inSection:0]];
-    [self.tableView reloadRowsAtIndexPaths:indices withRowAnimation:UITableViewRowAnimationFade];
-    [self.tableView endUpdates];
-}
 
 - (void)setupTableView {
     self.tableView = [UITableView new];
@@ -209,21 +141,21 @@
     switch (indexPath.row) {
         case 0:
             cell.textLabel.text = @"Maximum";
-            tempLabel.text = [[NSString alloc] initWithFormat:@"%@", self.max];
+            tempLabel.text = [[[NSString alloc] initWithFormat:@"%@", self.max] substringToIndex:2];
             tempLabel.textAlignment = NSTextAlignmentRight;
             cell.accessoryView = tempLabel;
             return cell;
             
         case 1:
             cell.textLabel.text = @"Minimum";
-            tempLabel.text = [[NSString alloc] initWithFormat:@"%@", self.min];
+            tempLabel.text = [[[NSString alloc] initWithFormat:@"%@", self.min] substringToIndex:2];
             tempLabel.textAlignment = NSTextAlignmentRight;
             cell.accessoryView = tempLabel;
             return cell;
             
         case 2:
             cell.textLabel.text = @"Average";
-            tempLabel.text = [[NSString alloc] initWithFormat:@"%@", self.average];
+            tempLabel.text = [[[NSString alloc] initWithFormat:@"%@", self.average] substringToIndex:2];
             tempLabel.textAlignment = NSTextAlignmentRight;
             cell.accessoryView = tempLabel;
             return cell;
@@ -232,5 +164,9 @@
             break;
     }
     return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:true];
 }
 @end
